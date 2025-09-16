@@ -1,6 +1,8 @@
 # Credit-Card-Fraud-Detection
 This project focuses on detecting fraudulent credit card transactions using a hybrid approach that combines Machine Learning (XGBoost) with a Rule-Based Engine for more reliable predictions.
-##Model Training:## Built on the well-known European Credit Card Fraud dataset (2013), where transaction features are anonymized into PCA components V1–V28, along with Time, Amount, and Class (fraud/legit).
+
+## Model Training:
+Built on the well-known European Credit Card Fraud dataset (2013), where transaction features are anonymized into PCA components V1–V28, along with Time, Amount, and Class (fraud/legit).
 
 ## Hybrid Detection:
 
