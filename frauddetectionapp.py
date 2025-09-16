@@ -9,7 +9,6 @@ from io import BytesIO
 
 st.set_page_config(layout="wide")
 
-# Hide URL anchor on headings
 hide_anchor_css = """
 <style>
 h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {
@@ -18,10 +17,6 @@ h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {
 </style>
 """
 st.markdown(hide_anchor_css, unsafe_allow_html=True)
-
-# -------------------------
-# Utilities
-# -------------------------
 
 @st.cache_resource
 def load_model_any(path_candidates=None):
@@ -55,7 +50,6 @@ def assemble_expected_input(time_seconds, v_values, amount):
 
 def compute_rule_score(amount, hour_of_day, txns_last_minute=0,
                        night_hours=(0, 6)):
-    # Fixed thresholds
     if amount <= 50000:
         amount_score = 0.0    # Normal
     elif amount <= 100000:
@@ -63,11 +57,9 @@ def compute_rule_score(amount, hour_of_day, txns_last_minute=0,
     else:
         amount_score = 1.0    # High-Risk
 
-    # Nighttime activity penalty
     start_n, end_n = night_hours
     night_score = 1.0 if start_n <= hour_of_day < end_n else 0.0
 
-    # Transaction velocity check
     if txns_last_minute <= 1:
         vel_score = 0.0
     elif txns_last_minute <= 3:
@@ -75,7 +67,6 @@ def compute_rule_score(amount, hour_of_day, txns_last_minute=0,
     else:
         vel_score = 1.0
 
-    # Weighted aggregation
     w_amount, w_night, w_vel = 0.6, 0.25, 0.15
     raw = w_amount * amount_score + w_night * night_score + w_vel * vel_score
     return max(0.0, min(1.0, raw))
@@ -106,10 +97,6 @@ def df_to_bytes_csv(df: pd.DataFrame):
     buffer.seek(0)
     return buffer.read()
 
-# -------------------------
-# App start
-# -------------------------
-
 st.title("Fraud Detection Via XGBOOST & Rule Engine")
 st.markdown("""
 This application is a **Hybrid Fraud Detection System** that combines the power of an XGBoost machine learning model with a rule-based engine.  
@@ -125,10 +112,6 @@ if model is None:
     st.stop()
 
 expected_features = ["Time"] + [f"V{i}" for i in range(1, 29)] + ["Amount"]
-
-# -------------------------
-# Configuration
-# -------------------------
 st.markdown("### Configuration:")
 col1, col2 = st.columns(2)
 with col1:
@@ -140,9 +123,6 @@ with col2:
 # Tabs
 tab_single, tab_bulk, tab_sim = st.tabs(["Single Transaction", "Upload CSV (Batch)", "Simulation"])
 
-# -------------------------
-# Single Transaction
-# -------------------------
 with tab_single:
     st.subheader("Single Transaction Check:")
     c1, c2 = st.columns([1, 1])
@@ -192,9 +172,6 @@ with tab_single:
             st.info("SHAP not available. Showing input features instead.")
             st.table(input_df.T.rename(columns={0: "value"}))
 
-# -------------------------
-# Bulk CSV Tab
-# -------------------------
 with tab_bulk:
     st.subheader("Bulk Transaction Analysis (CSV Upload):")
 
@@ -234,9 +211,6 @@ with tab_bulk:
         st.success(f"✅ Complete! Legit: {legit_count}, Fraud: {fraud_count}")
         st.dataframe(df.head(20))
 
-# -------------------------
-# Simulation
-# -------------------------
 with tab_sim:
     st.subheader("Simulation (synthetic transactions):")
     sim_cols = st.columns(3)
