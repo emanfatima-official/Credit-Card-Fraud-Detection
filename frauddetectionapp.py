@@ -126,51 +126,58 @@ tab_single, tab_bulk, tab_sim = st.tabs(["Single Transaction", "Upload CSV (Batc
 with tab_single:
     st.subheader("Single Transaction Check:")
     c1, c2 = st.columns([1, 1])
+
     with c1:
-        txn_date = st.date_input("Transaction date", value=datetime.utcnow().date())
-        txn_time = st.time_input("Transaction time", value=datetime.utcnow().time())
+        # Default None, taake reset issue na ho
+        txn_date = st.date_input("Transaction date")
+        txn_time = st.time_input("Transaction time")
         amount = st.number_input("Transaction amount", 0.0, 1e9, 100.0, 1.0)
         txns_last_minute = st.number_input("Transactions in last 1 minute", 0, 100, 0)
+
     with c2:
         avg_spend = st.number_input("User average spend (optional)", 0.0, 1e9, 200.0, 1.0)
         usual_start = st.slider("User usual start hour", 0, 23, 8)
         usual_end = st.slider("User usual end hour", 0, 23, 20)
 
     if st.button("Run Hybrid Check"):
-        txn_dt = pd.to_datetime(f"{txn_date} {txn_time}")
-        reference = pd.to_datetime("2025-01-01 00:00:00")
-        time_seconds = (txn_dt - reference).total_seconds()
+        if txn_date and txn_time:  # Ensure both are selected
+            txn_dt = pd.to_datetime(f"{txn_date} {txn_time}")
+            reference = pd.to_datetime("2025-01-01 00:00:00")
+            time_seconds = (txn_dt - reference).total_seconds()
 
-        base_v = np.random.normal(0, 1, 28)
-        if amount > avg_spend * 5:
-            base_v = base_v + np.random.normal(1.0, 0.5, 28)
+            base_v = np.random.normal(0, 1, 28)
+            if amount > avg_spend * 5:
+                base_v = base_v + np.random.normal(1.0, 0.5, 28)
 
-        input_df = assemble_expected_input(time_seconds, base_v, amount)
-        try:
-            model_prob = float(model.predict_proba(input_df)[0][1])
-        except Exception:
-            model_prob = float(model.predict(input_df)[0])
+            input_df = assemble_expected_input(time_seconds, base_v, amount)
 
-        rule_score = compute_rule_score(amount, txn_dt.hour, txns_last_minute, (0, 6))
-        combined = blend_scores(model_prob, rule_score, alpha)
+            try:
+                model_prob = float(model.predict_proba(input_df)[0][1])
+            except Exception:
+                model_prob = float(model.predict(input_df)[0])
 
-        st.write(pd.DataFrame({
-            "metric": ["Model probability", "Rule score", "Combined score"],
-            "value": [round(model_prob, 4), round(rule_score, 4), round(combined, 4)]
-        }))
+            rule_score = compute_rule_score(amount, txn_dt.hour, txns_last_minute, (0, 6))
+            combined = blend_scores(model_prob, rule_score, alpha)
 
-        classification = "FRAUD" if combined >= threshold else "LEGIT"
-        if classification == "FRAUD":
-            st.error(f"Classification: FRAUD (score {combined:.3f})")
+            st.write(pd.DataFrame({
+                "metric": ["Model probability", "Rule score", "Combined score"],
+                "value": [round(model_prob, 4), round(rule_score, 4), round(combined, 4)]
+            }))
+
+            classification = "FRAUD" if combined >= threshold else "LEGIT"
+            if classification == "FRAUD":
+                st.error(f"Classification: FRAUD (score {combined:.3f})")
+            else:
+                st.success(f"Classification: LEGIT (score {combined:.3f})")
+
+            shap_df = get_shap_feature_contributions(model, input_df, top_n=8)
+            if shap_df is not None:
+                st.table(shap_df.rename(columns={"feature": "Feature", "shap_value": "SHAP value"}))
+            else:
+                st.info("SHAP not available. Showing input features instead.")
+                st.table(input_df.T.rename(columns={0: "value"}))
         else:
-            st.success(f"Classification: LEGIT (score {combined:.3f})")
-
-        shap_df = get_shap_feature_contributions(model, input_df, top_n=8)
-        if shap_df is not None:
-            st.table(shap_df.rename(columns={"feature": "Feature", "shap_value": "SHAP value"}))
-        else:
-            st.info("SHAP not available. Showing input features instead.")
-            st.table(input_df.T.rename(columns={0: "value"}))
+            st.warning("⚠ Please select both Transaction Date and Time before running the check.")
 
 with tab_bulk:
     st.subheader("Bulk Transaction Analysis (CSV Upload):")
